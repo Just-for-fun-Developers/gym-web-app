@@ -6,25 +6,24 @@ import {
   ChevronUp,
   Dumbbell,
   ExternalLink,
-  Library,
+  Info,
   Loader2,
   Play,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import {
   Exercise,
   getTrainingProgram,
   getTrainingPrograms,
-  TrainingDay,
   TrainingDayExercise,
-  TrainingWeek,
 } from "@/lib/api";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const MINIO_PUBLIC_URL =
-  process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL ?? "http://localhost:9000";
+  process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL ?? "/minio";
 
 function statValue(value: string | null | undefined) {
   return value && value !== "N/A" ? value : "-";
@@ -61,7 +60,96 @@ function preferredVideoUrl(exercise: Exercise) {
 }
 
 function isBrowserUrl(value: string | null | undefined) {
-  return Boolean(value?.startsWith("http://") || value?.startsWith("https://"));
+  return Boolean(
+    value?.startsWith("http://") ||
+      value?.startsWith("https://") ||
+      value?.startsWith("/"),
+  );
+}
+
+function RpeLabel({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const helperId = useId();
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      {children}
+      <span className="relative inline-flex">
+        <button
+          type="button"
+          className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Show RPE meaning"
+          aria-describedby={isOpen ? helperId : undefined}
+          aria-expanded={isOpen}
+          onBlur={() => setIsOpen(false)}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onMouseEnter={() => setIsOpen(true)}
+          onMouseLeave={() => setIsOpen(false)}
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+        {isOpen ? (
+          <span
+            id={helperId}
+            role="tooltip"
+            className="absolute bottom-full left-1/2 z-50 mb-2 w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md bg-foreground px-3 py-2 text-left text-xs leading-5 text-background shadow-lg"
+          >
+            RPE means Rate of Perceived Exertion. It measures how hard a set
+            feels: RPE 7 means about 3 reps left, RPE 8 means about 2 reps
+            left, RPE 9 means about 1 rep left.
+            <span className="absolute left-1/2 top-full size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[2px] bg-foreground" />
+          </span>
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
+function YouTubeIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path d="M21.6 7.2a2.7 2.7 0 0 0-1.9-1.9C18 4.9 12 4.9 12 4.9s-6 0-7.7.4a2.7 2.7 0 0 0-1.9 1.9A28 28 0 0 0 2 12a28 28 0 0 0 .4 4.8 2.7 2.7 0 0 0 1.9 1.9c1.7.4 7.7.4 7.7.4s6 0 7.7-.4a2.7 2.7 0 0 0 1.9-1.9A28 28 0 0 0 22 12a28 28 0 0 0-.4-4.8ZM10 15.1V8.9l5.2 3.1L10 15.1Z" />
+    </svg>
+  );
+}
+
+function YouTubeLink({
+  className,
+  exerciseName,
+  url,
+}: {
+  className?: string;
+  exerciseName: string;
+  url: string | null;
+}) {
+  if (!url) return null;
+
+  return (
+    <a
+      className={cn(
+        "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-red-600 transition hover:bg-red-50 hover:text-red-700 focus-visible:ring-2 focus-visible:ring-ring",
+        className,
+      )}
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Open ${exerciseName} on YouTube`}
+      title="Open on YouTube"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <YouTubeIcon className="h-5 w-5" />
+    </a>
+  );
 }
 
 function ExerciseThumbnail({
@@ -142,9 +230,16 @@ function ExerciseCard({
               <p className="text-xs font-medium uppercase text-muted-foreground">
                 Exercise {item.exerciseOrder}
               </p>
-              <h3 className="mt-1 text-xl font-semibold leading-tight">
-                {item.exercise.name}
-              </h3>
+              <div className="mt-1 flex min-w-0 items-start gap-2">
+                <h3 className="min-w-0 break-words text-xl font-semibold leading-tight">
+                  {item.exercise.name}
+                </h3>
+                <YouTubeLink
+                  className="-mt-1"
+                  exerciseName={item.exercise.name}
+                  url={mainYouTubeUrl}
+                />
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -160,17 +255,6 @@ function ExerciseCard({
                   {isExpanded ? <ChevronUp /> : <ChevronDown />}
                   {isExpanded ? "Hide video" : "Show video"}
                 </button>
-              ) : null}
-              {!canShowInlineVideo && mainYouTubeUrl ? (
-                <a
-                  className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
-                  href={mainYouTubeUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <ExternalLink />
-                  YouTube
-                </a>
               ) : null}
             </div>
           </div>
@@ -238,11 +322,15 @@ function ExerciseCard({
 
       <dl className="mt-3 grid gap-3 sm:grid-cols-3">
         <div className="rounded-md border px-3 py-2">
-          <dt className="text-xs text-muted-foreground">Early set RPE</dt>
+          <dt className="text-xs text-muted-foreground">
+            <RpeLabel>Early set RPE</RpeLabel>
+          </dt>
           <dd className="text-sm font-medium">{statValue(item.earlySetRpe)}</dd>
         </div>
         <div className="rounded-md border px-3 py-2">
-          <dt className="text-xs text-muted-foreground">Last set RPE</dt>
+          <dt className="text-xs text-muted-foreground">
+            <RpeLabel>Last set RPE</RpeLabel>
+          </dt>
           <dd className="text-sm font-medium">{statValue(item.lastSetRpe)}</dd>
         </div>
         <div className="rounded-md border px-3 py-2">
@@ -315,9 +403,16 @@ function ExerciseCard({
                       <p className="text-xs text-muted-foreground">
                         Option {substitution.substitutionOrder}
                       </p>
-                      <p className="break-words text-sm font-medium">
-                        {substitution.exercise.name}
-                      </p>
+                      <div className="flex min-w-0 items-start gap-1.5">
+                        <p className="min-w-0 break-words text-sm font-medium">
+                          {substitution.exercise.name}
+                        </p>
+                        <YouTubeLink
+                          className="-mt-1 size-7"
+                          exerciseName={substitution.exercise.name}
+                          url={substitutionYouTubeUrl}
+                        />
+                      </div>
                     </div>
                   </div>
                   {canShowSubstitutionInline ? (
@@ -332,18 +427,6 @@ function ExerciseCard({
                     >
                       {isSubstitutionExpanded ? <ChevronUp /> : <Play />}
                     </button>
-                  ) : substitutionYouTubeUrl ? (
-                    <a
-                      className={cn(
-                        buttonVariants({ size: "icon-sm", variant: "ghost" }),
-                      )}
-                      href={substitutionYouTubeUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`${substitution.exercise.name} YouTube video`}
-                    >
-                      <ExternalLink />
-                    </a>
                   ) : null}
                 </div>
               );
@@ -372,22 +455,20 @@ function ExerciseCard({
       ) : null}
 
       {item.notes ? (
-        <p className="mt-4 rounded-md bg-muted px-3 py-2 text-sm leading-6 text-muted-foreground">
-          {item.notes}
-        </p>
+        <section className="mt-4 rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
+          <p className="text-xs font-medium uppercase text-muted-foreground">
+            Coaching note
+          </p>
+          <p className="mt-1 text-sm font-medium leading-6">{item.notes}</p>
+        </section>
       ) : null}
     </article>
   );
 }
 
-function selectFirstDay(week: TrainingWeek | undefined) {
-  return week?.days?.[0]?.dayNumber ?? null;
-}
-
 export function TrainingProgramBrowser() {
-  const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null);
-  const [selectedWeekNumber, setSelectedWeekNumber] = useState<number | null>(null);
-  const [selectedDayNumber, setSelectedDayNumber] = useState<number | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [expandedMediaKey, setExpandedMediaKey] = useState<string | null>(null);
 
   const programsQuery = useQuery({
@@ -399,7 +480,14 @@ export function TrainingProgramBrowser() {
     () => programsQuery.data?.programs ?? [],
     [programsQuery.data?.programs],
   );
-  const activeProgramId = selectedProgramId ?? programs[0]?.id ?? null;
+
+  const requestedProgramId = Number(searchParams.get("program"));
+  const requestedWeekNumber = Number(searchParams.get("week"));
+  const requestedDayNumber = Number(searchParams.get("day"));
+  const activeProgramId =
+    programs.find((item) => item.id === requestedProgramId)?.id ??
+    programs[0]?.id ??
+    null;
 
   const programQuery = useQuery({
     queryKey: ["training-program", activeProgramId],
@@ -412,34 +500,41 @@ export function TrainingProgramBrowser() {
 
   const selectedWeek = useMemo(
     () =>
-      weeks.find((week) => week.weekNumber === selectedWeekNumber) ?? weeks[0],
-    [selectedWeekNumber, weeks],
+      weeks.find((week) => week.weekNumber === requestedWeekNumber) ?? weeks[0],
+    [requestedWeekNumber, weeks],
   );
 
   const days = useMemo(() => selectedWeek?.days ?? [], [selectedWeek?.days]);
   const selectedDay = useMemo(
-    () => days.find((day) => day.dayNumber === selectedDayNumber) ?? days[0],
-    [days, selectedDayNumber],
+    () => days.find((day) => day.dayNumber === requestedDayNumber) ?? days[0],
+    [days, requestedDayNumber],
   );
 
-  function handleProgramChange(programId: number) {
-    setSelectedProgramId(programId);
-    setSelectedWeekNumber(null);
-    setSelectedDayNumber(null);
-    setExpandedMediaKey(null);
-  }
+  useEffect(() => {
+    if (!activeProgramId || !selectedWeek || !selectedDay) return;
+    if (
+      requestedProgramId === activeProgramId &&
+      requestedWeekNumber === selectedWeek.weekNumber &&
+      requestedDayNumber === selectedDay.dayNumber
+    ) {
+      return;
+    }
 
-  function handleWeekChange(weekNumber: number) {
-    const nextWeek = weeks.find((week) => week.weekNumber === weekNumber);
-    setSelectedWeekNumber(weekNumber);
-    setSelectedDayNumber(selectFirstDay(nextWeek));
-    setExpandedMediaKey(null);
-  }
-
-  function handleDayChange(day: TrainingDay) {
-    setSelectedDayNumber(day.dayNumber);
-    setExpandedMediaKey(null);
-  }
+    const params = new URLSearchParams({
+      program: String(activeProgramId),
+      week: String(selectedWeek.weekNumber),
+      day: String(selectedDay.dayNumber),
+    });
+    router.replace(`/admin/training?${params.toString()}`);
+  }, [
+    activeProgramId,
+    requestedDayNumber,
+    requestedProgramId,
+    requestedWeekNumber,
+    router,
+    selectedDay,
+    selectedWeek,
+  ]);
 
   if (programsQuery.isLoading) {
     return (
@@ -470,38 +565,6 @@ export function TrainingProgramBrowser() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border bg-card p-5 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium">Program</span>
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20"
-              value={activeProgramId ?? ""}
-              onChange={(event) => handleProgramChange(Number(event.target.value))}
-            >
-              {programs.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="flex flex-wrap gap-2">
-            {program?.level ? (
-              <span className="rounded-md border px-3 py-2 text-sm capitalize">
-                {program.level}
-              </span>
-            ) : null}
-            {program?.sourceName ? (
-              <span className="rounded-md border px-3 py-2 text-sm">
-                {program.sourceName}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
       {programQuery.isLoading ? (
         <section className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-2">
@@ -518,63 +581,7 @@ export function TrainingProgramBrowser() {
       ) : null}
 
       {program ? (
-        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          <aside className="space-y-4">
-            <section className="rounded-lg border bg-card p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <Library className="h-4 w-4" />
-                <h2 className="text-sm font-semibold">Weeks</h2>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {weeks.map((week) => (
-                  <button
-                    key={week.id}
-                    className={`rounded-md border px-3 py-2 text-left text-sm transition ${
-                      selectedWeek?.id === week.id
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                    type="button"
-                    onClick={() => handleWeekChange(week.weekNumber)}
-                  >
-                    <span className="font-medium">Week {week.weekNumber}</span>
-                    {week.blockName ? (
-                      <span className="mt-1 block text-xs opacity-75">
-                        {week.blockName}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-lg border bg-card p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <Dumbbell className="h-4 w-4" />
-                <h2 className="text-sm font-semibold">Days</h2>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {days.map((day) => (
-                  <button
-                    key={day.id}
-                    className={`rounded-md border px-3 py-2 text-left text-sm transition ${
-                      selectedDay?.id === day.id
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                    type="button"
-                    onClick={() => handleDayChange(day)}
-                  >
-                    <span className="font-medium">Day {day.dayNumber}</span>
-                    <span className="mt-1 block text-xs opacity-75">
-                      {day.dayLabel}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </aside>
-
+        <div className="grid gap-6">
           <section className="min-w-0 space-y-4">
             <header className="rounded-lg border bg-card p-5 shadow-sm">
               <p className="text-sm font-medium text-muted-foreground">
@@ -584,9 +591,22 @@ export function TrainingProgramBrowser() {
               <h2 className="mt-1 text-2xl font-semibold">
                 {selectedDay?.dayLabel ?? "No day selected"}
               </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {selectedDay?.exercises?.length ?? 0} exercises
-              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-sm text-muted-foreground">
+                <span>{program.name}</span>
+                {program.level ? (
+                  <span className="rounded-md border px-2 py-1 capitalize">
+                    {program.level}
+                  </span>
+                ) : null}
+                {program.sourceName ? (
+                  <span className="rounded-md border px-2 py-1">
+                    {program.sourceName}
+                  </span>
+                ) : null}
+                <span className="rounded-md border px-2 py-1">
+                  {selectedDay?.exercises?.length ?? 0} exercises
+                </span>
+              </div>
             </header>
 
             {selectedDay?.exercises?.length ? (

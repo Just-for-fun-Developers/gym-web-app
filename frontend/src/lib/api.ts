@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export type HealthResponse = {
   status: "ok";
@@ -229,6 +229,30 @@ type ApiErrorResponse = {
   error?: string;
 };
 
+export class ApiRequestError extends Error {
+  status: number;
+  statusText: string;
+  path: string;
+
+  constructor({
+    message,
+    path,
+    status,
+    statusText,
+  }: {
+    message: string;
+    path: string;
+    status: number;
+    statusText: string;
+  }) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.path = path;
+    this.status = status;
+    this.statusText = statusText;
+  }
+}
+
 async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -246,7 +270,12 @@ async function apiRequest<T>(
   const data = (await response.json().catch(() => ({}))) as T & ApiErrorResponse;
 
   if (!response.ok) {
-    throw new Error(data.error ?? "API request failed.");
+    throw new ApiRequestError({
+      message: data.error ?? "API request failed.",
+      path,
+      status: response.status,
+      statusText: response.statusText,
+    });
   }
 
   return data;
