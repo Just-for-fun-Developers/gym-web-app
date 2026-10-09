@@ -6,6 +6,10 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
+# Browser runtime is installed in the production stage.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
@@ -53,6 +57,7 @@ RUN apt-get update && apt-get install -y \
 
 # Set Chrome executable path for Puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 # Create app user for security

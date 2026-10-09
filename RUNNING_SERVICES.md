@@ -40,10 +40,53 @@ docker logs openwa-api | grep -A1 "API Key"
 From this project root:
 
 ```bash
+cp backend/.env.example backend/.env
+```
+
+Only run this once, or whenever `backend/.env` is missing.
+
+Then start the backend:
+
+```bash
 docker-compose up -d --build backend
 ```
 
 The backend service also starts PostgreSQL.
+
+To start only PostgreSQL:
+
+```bash
+docker-compose up -d postgres
+```
+
+Check that PostgreSQL is healthy:
+
+```bash
+docker-compose ps postgres
+docker-compose exec postgres pg_isready -U sitefitness -d sitefitness
+```
+
+Connect to the database from inside the container:
+
+```bash
+docker-compose exec postgres psql -U sitefitness -d sitefitness
+```
+
+Local database settings:
+
+```txt
+Host: localhost
+Port: 5432
+Database: sitefitness
+Username: sitefitness
+Password: sitefitness
+```
+
+Stop PostgreSQL without deleting the database volume:
+
+```bash
+docker-compose stop postgres
+```
 
 Apply migrations:
 

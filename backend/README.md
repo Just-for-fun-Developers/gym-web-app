@@ -251,6 +251,27 @@ Before importing, apply the migrations:
 flask --app run db upgrade
 ```
 
+Before importing a new week, sanity-check that exercise and substitution names
+match their YouTube video titles:
+
+```bash
+cd ..
+python3 tools/check_workout_youtube_matches.py week-4-workouts.json --insecure --threshold 0.55
+cd backend
+```
+
+If the checker reports substitution URL swaps, review the output. To apply the
+strong swap candidates automatically:
+
+```bash
+cd ..
+python3 tools/check_workout_youtube_matches.py week-4-workouts.json --insecure --threshold 0.55 --apply-swaps
+cd backend
+```
+
+`--insecure` is only for local machines where Python cannot verify YouTube's
+TLS certificate chain.
+
 From the `backend/` folder, import the current Week 1 file from the project
 root:
 

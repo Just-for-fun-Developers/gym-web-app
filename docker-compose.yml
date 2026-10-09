@@ -6,7 +6,10 @@ services:
     container_name: sitefitness-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://127.0.0.1:5001/api
+      NEXT_PUBLIC_API_URL: /api
+      NEXT_PUBLIC_MINIO_PUBLIC_URL: /minio
+      BACKEND_INTERNAL_URL: http://backend:5001
+      MINIO_INTERNAL_URL: http://host.docker.internal:9000
       WATCHPACK_POLLING: "true"
     ports:
       - "3000:3000"
@@ -26,6 +29,8 @@ services:
       - ./backend/.env
     environment:
       DATABASE_URL: postgresql://sitefitness:sitefitness@postgres:5432/sitefitness
+      FRONTEND_ORIGIN: http://macmini:3000
+      PUBLIC_FRONTEND_ORIGIN: https://gym.fratellidevs.com
       OPENWA_API_URL: http://host.docker.internal:2785/api
       PYTHONUNBUFFERED: "1"
     ports:
